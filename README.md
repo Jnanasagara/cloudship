@@ -25,7 +25,7 @@ kind will run the same application locally in Kubernetes.
 
 ## Setup decisions
 
-- Target repository: Jnanasagara/cloudship (public)
+- Target repository: Jnanasagara/cloudship (private during development)
 - Planned AWS region: ap-south-1 (Mumbai)
 - Terraform, AWS CLI and kind: setup pending
 
