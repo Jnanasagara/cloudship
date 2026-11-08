@@ -15,7 +15,7 @@ kind will run the same application locally in Kubernetes.
 
 - [x] Phase 0: Prerequisites and repository setup
 - [x] Phase 1: FastAPI application and tests
-- [ ] Phase 2: Docker containerization
+- [x] Phase 2: Docker containerization
 - [ ] Phase 3: Terraform AWS infrastructure
 - [ ] Phase 4: GitHub Actions CI/CD
 - [ ] Phase 5: Health checks and automatic rollback
@@ -72,3 +72,64 @@ Restore both flags to "false" afterward.
 
 Normal deployments must explicitly disable both flags.
 Automatic deployment and rollback are not implemented yet.
+
+
+## Docker development
+
+Requires Docker Desktop running with Linux containers.
+
+```powershell
+# Build the image using the locked runtime dependencies.
+docker build --pull -t cloudship:local-v1 .
+
+# Start a non-root container, accessible only from this computer.
+docker run -d --name cloudship-local -p 127.0.0.1:8000:8000 -e APP_VERSION=local-v1 -e ALLOW_FAILURE_DEMO=false -e SIMULATE_UNHEALTHY=false cloudship:local-v1
+
+# Verify application health and release identification.
+curl.exe -i http://127.0.0.1:8000/health
+curl.exe -i http://127.0.0.1:8000/version
+
+# Inspect application logs and the container's runtime identity.
+docker logs cloudship-local
+docker exec cloudship-local id
+
+# Stop and remove this container; retain the image.
+docker stop cloudship-local
+docker rm cloudship-local
+```
+
+### Configuration
+
+- APP_VERSION identifies the running release.
+- UVICORN_PORT controls the container's listening port; default: 8000.
+- When changing UVICORN_PORT, update the container side of the port mapping.
+- Unhealthy mode requires both ALLOW_FAILURE_DEMO=true and SIMULATE_UNHEALTHY=true.
+- Environment settings are supplied when creating a container.
+  Recreate the container to change them.
+
+### Dependencies
+
+Edit requirements.in to select direct runtime dependencies.
+Generate requirements.txt rather than editing its versions and hashes manually.
+
+```powershell
+# Install the dependency compiler into the local development environment.
+.\.venv\Scripts\python.exe -m pip install pip-tools==7.6.2
+
+# Regenerate the runtime lock, including package hashes.
+.\.venv\Scripts\python.exe -m piptools compile --generate-hashes --no-emit-index-url --no-emit-trusted-host requirements.in
+```
+
+Review dependency changes and rerun tests and the Docker build afterward.
+
+### Verified container behavior
+
+- Healthy root, health and version endpoints.
+- Runtime user and group IDs: 10001.
+- Explicit unhealthy mode returns HTTP 503 while version remains available.
+- A second container does not affect the healthy container.
+- Configurable container port verified using UVICORN_PORT=8080.
+- Demonstration containers stopped and removed; local image retained.
+
+Docker reports process state; HTTP checks establish application health.
+Automatic rollback is not implemented yet.

@@ -1,0 +1,17 @@
+#Exclude everything by default
+**
+
+#Include only the files needed to build the application
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!app/
+!app/**
+
+#Exclude generated files and sensitive settings within included folders
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

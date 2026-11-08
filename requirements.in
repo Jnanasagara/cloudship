@@ -1,0 +1,4 @@
+# Direct runtime dependencies - edit this file when choosing new versions.
+# pip-tools generates requirements.txt from this list.
+fastapi==0.162.0
+uvicorn==0.54.0
