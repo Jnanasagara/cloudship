@@ -1,0 +1,36 @@
+#!/bin/bash
+# Prepare the EC2 host for SSM-managed Docker deployments.
+set -euo pipefail
+
+# Keep setup output in a dedicated log and the cloud-init output log.
+exec > >(tee -a /var/log/cloudship-bootstrap.log) 2>&1
+
+# Report where setup stopped if a command fails.
+trap 'echo "Bootstrap failed on line $LINENO" >&2' ERR
+
+# Enable the SSM agent supplied by the standard Amazon Linux 2023 image.
+systemctl enable --now amazon-ssm-agent
+
+# Install the container engine and a JSON-processing tool.
+dnf install -y docker jq
+
+# Start Docker now and automatically after future reboots.
+systemctl enable --now docker
+
+# Prepare root-owned locations for deployment scripts and release state.
+install -d -m 0755 /opt/cloudship/bin
+install -d -m 0700 /var/lib/cloudship
+
+# Write non-secret settings supplied by Terraform.
+cat > /etc/cloudship.env <<'CLOUDSHIP_CONFIG'
+AWS_REGION='${aws_region}'
+CLOUDWATCH_LOG_GROUP='${log_group_name}'
+CLOUDSHIP_CONFIG
+
+chmod 0644 /etc/cloudship.env
+
+# Check that the HTTP client and Docker engine are available.
+command -v curl
+docker info >/dev/null
+
+echo "CloudShip bootstrap complete"

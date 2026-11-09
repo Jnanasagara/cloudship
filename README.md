@@ -28,6 +28,9 @@ kind will run the same application locally in Kubernetes.
 - Target repository: Jnanasagara/cloudship (private during development)
 - Planned AWS region: ap-south-1 (Mumbai)
 - Terraform, AWS CLI and kind: setup pending
+- AWS region: ap-southeast-2 (Sydney), assigned to the current AWS project
+- Terraform and AWS CLI: installed and verified
+- kind: installation pending
 
 ## Safety
 
@@ -133,3 +136,31 @@ Review dependency changes and rerun tests and the Docker build afterward.
 
 Docker reports process state; HTTP checks establish application health.
 Automatic rollback is not implemented yet.
+
+## Terraform infrastructure checkpoint
+
+### Implemented and checked locally
+
+- Dedicated VPC, public subnet, internet gateway and routing.
+- HTTP ingress restricted to an explicitly configured client IPv4 /32.
+- No inbound SSH rule; management is designed to use Systems Manager.
+- EC2 configuration with encrypted storage and required IMDSv2 tokens.
+- Instance IAM permissions for Systems Manager and application log publishing.
+- CloudWatch log group with seven-day retention and two EC2 metric alarms.
+- Instance ID, public IP and log group outputs.
+- Shareable variables example; real variables and Terraform state are ignored.
+- Formatting and validation passed; plan proposes 17 resources.
+- Bootstrap script passed a Bash syntax check without being executed.
+
+### Pending AWS verification
+
+No Terraform-managed infrastructure has been applied.
+Instance startup, Systems Manager connectivity, Docker installation,
+log delivery and alarm behavior remain unverified.
+
+GitHub OIDC setup is blocked by an AWS organization service control policy.
+The repository subject has been recorded locally, but the OIDC provider
+and deployment role have not been implemented.
+
+Phase 3 remains incomplete. Cloud provisioning and account upgrades
+require explicit approval.
