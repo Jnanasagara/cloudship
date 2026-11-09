@@ -1,12 +1,12 @@
 variable "aws_region" {
-  description = "AWS region assigned to the existing project."
+  description = "Reviewed AWS region for the CloudShip deployment."
   type        = string
   default     = "ap-southeast-2"
 
-  # Prevent accidentally targetting a region this AWS project does not support
+  # Keep this deployment in the reviewed Sydney region.
   validation {
     condition     = var.aws_region == "ap-southeast-2"
-    error_message = "This AWS project required ap-southeast-2 (Sydney)."
+    error_message = "CloudShip is configured for ap-southeast-2 (Sydney)."
   }
 }
 
@@ -25,7 +25,7 @@ variable "vps_cidr" {
   # Require a valid IPv4 /16 range for our planned subnet layout
   validation {
     condition     = can(cidrnetmask(var.vps_cidr)) && endswith(var.vps_cidr, "/16")
-    error_message = "vpc_cidr must be a valid IPv4 CIDR with a /16 prefix."
+    error_message = "vps_cidr must be a valid IPv4 CIDR with a /16 prefix."
   }
 }
 
@@ -51,5 +51,17 @@ variable "instance_type" {
   validation {
     condition     = contains(["t3.micro", "t3.small"], var.instance_type)
     error_message = "Choose t3.micro or t3.small for this demonstration."
+  }
+}
+
+variable "expected_aws_account_id" {
+  description = "AWS account permitted to host CloudShip infrastructure."
+  type        = string
+  nullable    = false
+
+  # AWS account IDs contain exactly twelve digits.
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.expected_aws_account_id))
+    error_message = "Provide a twelve-digit AWS account ID."
   }
 }

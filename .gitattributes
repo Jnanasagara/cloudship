@@ -1,0 +1,3 @@
+# EC2 and Linux containers require Unix line endings in shell scripts.
+*.sh text eol=lf
+*.tftpl text eol=lf

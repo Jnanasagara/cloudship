@@ -16,7 +16,7 @@ kind will run the same application locally in Kubernetes.
 - [x] Phase 0: Prerequisites and repository setup
 - [x] Phase 1: FastAPI application and tests
 - [x] Phase 2: Docker containerization
-- [ ] Phase 3: Terraform AWS infrastructure
+- [x] Phase 3: Terraform AWS infrastructure provisioned and verified
 - [ ] Phase 4: GitHub Actions CI/CD
 - [ ] Phase 5: Health checks and automatic rollback
 - [ ] Phase 6: CloudWatch verification
@@ -26,17 +26,20 @@ kind will run the same application locally in Kubernetes.
 ## Setup decisions
 
 - Target repository: Jnanasagara/cloudship (private during development)
-- Planned AWS region: ap-south-1 (Mumbai)
-- Terraform, AWS CLI and kind: setup pending
-- AWS region: ap-southeast-2 (Sydney), assigned to the current AWS project
+- AWS region: ap-southeast-2 (Sydney)
 - Terraform and AWS CLI: installed and verified
 - kind: installation pending
+- AWS account: Paid Plan with advanced features enabled; resource creation still requires approval
 
 ## Safety
 
-No CloudShip AWS resources have been provisioned.
-Cloud provisioning and destructive operations require explicit approval.
+CloudShip's Terraform-managed infrastructure is deployed in Sydney. The EC2 host
+is running; the application will be deployed in Phase 4.
+Further cloud provisioning and destructive operations require explicit approval.
 Credentials, private keys and Terraform state must stay out of Git.
+The $5 monthly budget is an alert, not a spending cap. Advanced features remove
+AWS project spend limits. Existing credits apply only to eligible charges before
+their expiration; paid usage is not automatically stopped when credits run out.
 
 ## Local development
 
@@ -139,7 +142,7 @@ Automatic rollback is not implemented yet.
 
 ## Terraform infrastructure checkpoint
 
-### Implemented and checked locally
+### Implemented and verified
 
 - Dedicated VPC, public subnet, internet gateway and routing.
 - HTTP ingress restricted to an explicitly configured client IPv4 /32.
@@ -147,20 +150,31 @@ Automatic rollback is not implemented yet.
 - EC2 configuration with encrypted storage and required IMDSv2 tokens.
 - Instance IAM permissions for Systems Manager and application log publishing.
 - CloudWatch log group with seven-day retention and two EC2 metric alarms.
-- Instance ID, public IP and log group outputs.
+- GitHub OIDC provider and deployment role restricted to the exact repository and main branch.
+- SSM deployment permissions restricted to the CloudShip instance and shell-command document.
+- Account allowlist rejects credentials for an unintended AWS account.
+- Instance ID, public IP, log group and deployment role ARN outputs.
 - Shareable variables example; real variables and Terraform state are ignored.
-- Formatting and validation passed; plan proposes 17 resources.
-- Bootstrap script passed a Bash syntax check without being executed.
+- Initial apply created 20 resources; a fresh post-apply plan reports no changes.
+- Bootstrap template uses Linux line endings; the exact rendered script passed Bash syntax checking without execution.
 
-### Pending AWS verification
+### Cloud verification and remaining boundaries
 
-No Terraform-managed infrastructure has been applied.
-Instance startup, Systems Manager connectivity, Docker installation,
-log delivery and alarm behavior remain unverified.
+EC2 is running and both system and instance status checks pass. Systems Manager
+reports the host online. A successful SSM command verified completed cloud-init,
+active Docker and SSM services, deployment directories and bootstrap settings.
+Live API checks confirmed encrypted storage, IMDSv2, restricted network rules,
+IAM policy scopes, supported-resource tags, log retention and both alarms.
+Both EC2 metric alarms reported OK during verification.
 
-GitHub OIDC setup is blocked by an AWS organization service control policy.
-The repository subject has been recorded locally, but the OIDC provider
-and deployment role have not been implemented.
+The earlier organization-policy denial on listing OIDC providers was resolved
+after advanced-feature activation. The provider listing returned zero existing
+GitHub providers, and Terraform then created the provider and deployment role.
+GitHub token exchange and actual deployment permissions will be tested in Phase 4.
 
-Phase 3 remains incomplete. Cloud provisioning and account upgrades
-require explicit approval.
+Phase 3 acceptance checks passed on November 9, 2026. Application deployment,
+CloudWatch application log delivery, rollback and local Kubernetes remain pending.
+See [the Phase 3 deployment guide](docs/PHASE3.md) for the resource inventory,
+cost assumptions, approval boundary, verification, cleanup and interview checkpoint.
+The [Phase 3 verification record](docs/PHASE3_VERIFICATION.md) summarizes the actual
+AWS checks without publishing local inputs, state, resource IDs or raw logs.

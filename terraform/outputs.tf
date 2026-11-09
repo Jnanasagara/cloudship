@@ -12,3 +12,8 @@ output "app_log_group_name" {
   description = "CloudWatch log group reserved for CloudShip application logs."
   value       = aws_cloudwatch_log_group.app.name
 }
+
+output "github_deploy_role_arn" {
+  description = "IAM role that approved GitHub Actions workflows can assume."
+  value       = aws_iam_role.github_deploy.arn
+}
