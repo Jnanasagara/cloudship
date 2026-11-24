@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      fail_ci_demo:
+        description: "Demonstrate a failing test blocking deployment"
+        type: boolean
+        required: false
+        default: false
 
 # Testing only needs permission to read the repository.
 permissions:
@@ -45,6 +51,16 @@ jobs:
 
       - name: Check dependency compatibility
         run: python -m pip check
+    
+          # Create a failing test only when explicitly requested manually.
+      - name: Prepare CI failure demonstration
+        if: github.event_name == 'workflow_dispatch' && inputs.fail_ci_demo
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'def test_ci_gate_demo():' \
+            '    assert False, "Intentional CI gate demonstration"' \
+            > tests/test_ci_gate_demo.py
 
       - name: Run application tests
         run: python -m pytest -q
