@@ -3,11 +3,11 @@
 A DevOps project demonstrating Terraform infrastructure,
 GitHub Actions delivery, monitoring, rollback and local Kubernetes.
 
-## Planned architecture
+## Architecture
 
 GitHub Actions → GHCR → AWS Systems Manager → EC2 running Docker.
 
-Terraform will define the AWS infrastructure.
+Terraform provisions the AWS infrastructure.
 CloudWatch will collect application logs and monitor instance metrics.
 kind will run the same application locally in Kubernetes.
 
@@ -17,7 +17,7 @@ kind will run the same application locally in Kubernetes.
 - [x] Phase 1: FastAPI application and tests
 - [x] Phase 2: Docker containerization
 - [x] Phase 3: Terraform AWS infrastructure provisioned and verified
-- [ ] Phase 4: GitHub Actions CI/CD
+- [x] Phase 4: GitHub Actions CI/CD verified
 - [ ] Phase 5: Health checks and automatic rollback
 - [ ] Phase 6: CloudWatch verification
 - [ ] Phase 7: Local Kubernetes with kind
@@ -25,7 +25,7 @@ kind will run the same application locally in Kubernetes.
 
 ## Setup decisions
 
-- Target repository: Jnanasagara/cloudship (private during development)
+- Target repository: Jnanasagara/cloudship (public)
 - AWS region: ap-southeast-2 (Sydney)
 - Terraform and AWS CLI: installed and verified
 - kind: installation pending
@@ -33,10 +33,12 @@ kind will run the same application locally in Kubernetes.
 
 ## Safety
 
-CloudShip's Terraform-managed infrastructure is deployed in Sydney. After Phase 3
-verification, the idle EC2 host was stopped and its automatic public IPv4 released
-to reduce costs. Its root disk and alarms remain allocated; the application will
-be deployed in Phase 4 after an approved restart.
+CloudShip's Terraform-managed infrastructure is deployed in Sydney. The host was
+stopped after Phase 3 to reduce costs, then restarted with approval on November 24,
+2026 for Phase 4. It is running the verified application as of that checkpoint.
+Compute and public IPv4 together cost approximately $0.0182/hour before credits,
+plus storage, monitoring and any chargeable traffic. Stop idle compute when the
+cloud demonstrations are finished; retained disks and alarms can still incur usage.
 Further cloud provisioning and destructive operations require explicit approval.
 Credentials, private keys and Terraform state must stay out of Git.
 The $5 monthly budget is an alert, not a spending cap. Advanced features remove
@@ -79,7 +81,7 @@ Restart the application after changing these settings.
 Restore both flags to "false" afterward.
 
 Normal deployments must explicitly disable both flags.
-Automatic deployment and rollback are not implemented yet.
+Automatic deployment is verified. Automatic rollback remains pending in Phase 5.
 
 
 ## Docker development
@@ -126,6 +128,9 @@ Generate requirements.txt rather than editing its versions and hashes manually.
 
 # Regenerate the runtime lock, including package hashes.
 .\.venv\Scripts\python.exe -m piptools compile --generate-hashes --no-emit-index-url --no-emit-trusted-host requirements.in
+
+# Regenerate the development lock with the same runtime versions and test tools.
+.\.venv\Scripts\python.exe -m piptools compile --generate-hashes --no-emit-index-url --no-emit-trusted-host --output-file=requirements-dev.txt requirements-dev.in
 ```
 
 Review dependency changes and rerun tests and the Docker build afterward.
@@ -172,11 +177,29 @@ Both EC2 metric alarms reported OK during verification.
 The earlier organization-policy denial on listing OIDC providers was resolved
 after advanced-feature activation. The provider listing returned zero existing
 GitHub providers, and Terraform then created the provider and deployment role.
-GitHub token exchange and actual deployment permissions will be tested in Phase 4.
+GitHub OIDC token exchange and actual SSM deployment permissions were verified
+in Phase 4 on November 24, 2026.
 
-Phase 3 acceptance checks passed on November 9, 2026. Application deployment,
-CloudWatch application log delivery, rollback and local Kubernetes remain pending.
+Phase 3 acceptance checks passed on November 9, 2026. Phase 4 application deployment
+was verified on November 24, 2026. CloudWatch application log delivery, automatic
+rollback and local Kubernetes remain pending.
 See [the Phase 3 deployment guide](docs/PHASE3.md) for the resource inventory,
 cost assumptions, approval boundary, verification, cleanup and interview checkpoint.
 The [Phase 3 verification record](docs/PHASE3_VERIFICATION.md) summarizes the actual
 AWS checks without publishing local inputs, state, resource IDs or raw logs.
+
+## Verified CI/CD checkpoint
+
+Pushes to main run application tests, publish a commit-tagged image to public GHCR,
+and deploy the exact image digest to EC2 through Systems Manager. Only the deployment
+job can request an AWS OIDC token. No SSH keys or long-lived AWS secrets are used.
+The host checks both application health and the expected commit version before the
+workflow reports deployment success.
+
+The controlled manual `fail_ci_demo=true` run produced one intentional test failure
+and eight passing tests. Image publishing and deployment were skipped; the existing
+application stayed healthy at the previously deployed version. The demonstration
+is disabled by default and does not activate on ordinary pushes.
+
+See [the Phase 4 guide and evidence](docs/PHASE4.md) for configuration, reproduction
+commands, verified workflow runs, operating limits and the interview checkpoint.

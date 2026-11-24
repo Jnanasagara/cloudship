@@ -85,3 +85,13 @@ cleanup procedure in [the Phase 3 guide](PHASE3.md) when finished.
 - No high availability, zero downtime or public HTTPS claim is made.
 - Kubernetes remains a separate future local kind exercise.
 - Cleanup instructions are documented; actual teardown is not yet performed.
+
+## Later Phase 4 checkpoint
+
+The pending deployment statements above describe the Phase 3 checkpoint. On
+November 24, 2026, the host was restarted with approval and Phase 4 verified actual
+GitHub OIDC authentication, SSM deployment, and client-restricted HTTP health and
+version responses. A controlled CI failure also blocked publishing and deployment
+while the application remained healthy. See [Phase 4 evidence](PHASE4.md).
+Automatic rollback, CloudWatch application log delivery and local Kubernetes remain
+separate later-phase work. The host is running as of this later checkpoint.
