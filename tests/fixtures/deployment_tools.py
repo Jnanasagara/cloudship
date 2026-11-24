@@ -94,6 +94,10 @@ elif args[0] == "run":
         elif arg == "--log-driver":
             driver = args[index + 1]
     image = args[-1]
+    # Characterize the actual AL2023 host's driver: it creates streams by default
+    # and rejected this explicit option during the live compatibility trial.
+    if driver == "awslogs" and "awslogs-create-stream" in options:
+        fail("unknown log opt 'awslogs-create-stream' for awslogs log driver", 125)
     failed = (state.get("candidate_start_fails") and image == state["candidate"]) or (
         state.get("rollback_start_fails") and image != state["candidate"]
     )

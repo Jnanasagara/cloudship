@@ -175,7 +175,7 @@ if [[ "$driver" == awslogs ]]; then
   logging="$(jq -nc --arg region "$AWS_REGION" --arg group "$CLOUDWATCH_LOG_GROUP" \
     --arg stream "cloudship/$version/$(date +%s)-$$" \
     '{Type:"awslogs",Config:{"awslogs-region":$region,"awslogs-group":$group,
-      "awslogs-stream":$stream,"awslogs-create-group":"false","awslogs-create-stream":"true"}}')"
+      "awslogs-stream":$stream,"awslogs-create-group":"false"}}')"
 elif [[ "$driver" == json-file ]]; then
   logging='{"Type":"json-file","Config":{"max-size":"10m","max-file":"3"}}'
 else
