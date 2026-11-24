@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Keep releases from overlapping; allow an active deployment to finish.
+concurrency:
+  group: cloudship-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     name: Application tests
@@ -102,3 +107,53 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/Jnanasagara/cloudship
             org.opencontainers.image.revision=${{ github.sha }}
+
+  deploy:
+    name: Deploy to EC2
+    needs: build_publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    # Only this job can request an AWS OIDC token.
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      APP_VERSION: ${{ github.sha }}
+
+      # Deploy the exact published content, rather than resolving a mutable tag.
+      IMAGE_REF: ghcr.io/jnanasagara/cloudship@${{ needs.build_publish.outputs.digest }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+
+      # Exchange GitHub's identity token for temporary AWS credentials.
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: cloudship-${{ github.run_id }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          retry-max-attempts: 3
+          action-timeout-s: 120
+
+      - name: Check AWS CLI availability
+        run: aws --version
+
+      - name: Deploy and verify through SSM
+        run: python scripts/deploy_ssm.py
