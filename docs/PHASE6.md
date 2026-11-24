@@ -1,9 +1,31 @@
 # Phase 6: CloudWatch monitoring
 
-The existing Terraform log group, scoped instance-role permissions and two EC2
-alarms were verified in Phase 3. The deployment now selects Docker awslogs from
-the root-owned `/etc/cloudship.env` on EC2. Actual application-event evidence will
-be added after the live release is verified.
+Verified on November 24, 2026. The deployment selects Docker awslogs from the
+root-owned `/etc/cloudship.env` on EC2, using the existing Terraform group and
+instance IAM role. Actual events were read through CloudWatch APIs.
+
+## Observed results
+
+- [Corrected live release](https://github.com/Jnanasagara/cloudship/actions/runs/45421377573)
+  deployed commit `2b1153df72669fa2461a31e109f9c96b421b8805` successfully.
+- SSM inspection confirmed the actual container and saved current digest agree,
+  the container is running, and its logging driver is `awslogs`.
+- CloudWatch contained one actual stream with eight initial events, including
+  application startup and successful health/version requests. Further probes
+  naturally add events; no synthetic event count is claimed as fixed.
+- The application log group retention was seven days.
+- Actual EC2 CPU datapoints were returned (12 in the sampled two-hour window).
+- Both instance-dimension alarms reported OK with the configured CPU/status
+  metric, statistic, threshold and period. No CPU load was generated for evidence.
+- The first new-logger trial hit an option rejected by the actual AL2023 host's
+  Docker build. It recovered the old healthy image and reported failed deployment.
+  Removing the optional explicit stream-creation setting fixed compatibility;
+  stream creation uses the driver's default. An executable regression captures
+  the actual host behavior rather than assuming every Docker build is identical.
+
+The final pre-teardown check observed three streams and 73 events across the live
+baseline, unhealthy candidate and healthy update. These are checkpoint observations,
+not invented log entries. Sanitized evidence was saved before approved teardown.
 
 ## Configuration
 

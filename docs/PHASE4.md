@@ -109,6 +109,11 @@ allow unrestricted HTTP, or replace EC2. Local ignored tfvars were aligned after
 
 ## Limits and lifecycle
 
+Final November 24 update: Phases 5–8 completed and the project resources were
+removed with approval. This guide's running-host and pending-feature statements
+record the Phase 4 checkpoint. See [the final evidence checklist](EVIDENCE_CHECKLIST.md)
+and [cleanup](../CLEANUP.md) for the current lifecycle. Push deployment is paused.
+
 - Single-instance replacement briefly interrupts service; this is not zero downtime.
 - A failed deployment is reported to GitHub, but restoring the previous image is
   Phase 5 work. Docker's restart policy is not automatic rollback.

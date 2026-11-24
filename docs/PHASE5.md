@@ -1,7 +1,31 @@
 # Phase 5: health checks and automatic rollback
 
-Implementation and isolated Linux tests are complete. Live demonstration evidence
-will be recorded after the tested workflow is published and run.
+Live rollback was verified on November 24, 2026, in addition to the isolated Linux
+regression suite.
+
+## Observed live recovery
+
+- Healthy release A was commit `2b1153df72669fa2461a31e109f9c96b421b8805`, deployed
+  by [the successful baseline run](https://github.com/Jnanasagara/cloudship/actions/runs/45421377573).
+- Candidate B was the distinct commit `524cdaf43f09dc095d3758f6f4dd501e4d5f3d55`.
+  [Its push run](https://github.com/Jnanasagara/cloudship/actions/runs/45421863137)
+  passed tests/publication with automatic deployment intentionally paused.
+- [The explicit unhealthy manual run](https://github.com/Jnanasagara/cloudship/actions/runs/45422190023)
+  started B. External HTTP actually returned 503 while `/version` identified B.
+- After the bounded health check rejected B, SSM reported `Rollback succeeded`
+  for A. The deploy job and overall run correctly remained failed.
+- External HTTP returned healthy status and A's version afterward. A separate
+  read-only SSM check confirmed the exact original image digest
+  `sha256:220ab62fdfe06793ab794f80a1f1834487ede3556cdfa2194f5244417c43cf57`
+  was running, matched the persisted current record, and used its original awslogs
+  configuration. This proves previous-image recovery, not merely a process restart.
+- [The normal healthy A → B run](https://github.com/Jnanasagara/cloudship/actions/runs/45422932600)
+  passed all three jobs. External HTTP was healthy at B's version; SSM inspection
+  confirmed B's actual image matches current state and A is retained as previous.
+  This separately proves successful updates after a rejected release.
+
+Raw failure logs remain root-readable on the host or private CloudWatch streams.
+Only structured release/recovery outcomes are copied into public workflow output.
 
 ## Behavior
 

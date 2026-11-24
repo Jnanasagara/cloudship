@@ -27,16 +27,24 @@ flowchart LR
 | Phase | Status |
 | --- | --- |
 | 0–2: prerequisites, FastAPI, Docker | Verified |
-| 3: Terraform AWS infrastructure | Applied and verified; final teardown pending |
+| 3: Terraform AWS infrastructure | Plan/apply/runtime checks and approved teardown verified |
 | 4: GitHub CI/CD, OIDC, SSM, failed-test gate | Verified — [evidence](docs/PHASE4.md) |
-| 5: automatic rollback | Implemented and locally tested; live proof pending |
-| 6: CloudWatch application logs | Implemented; live proof pending |
+| 5: automatic rollback | Verified distinct unhealthy release, failed workflow, exact previous image restored |
+| 6: CloudWatch application logs | Verified actual startup/HTTP events, EC2 metrics and alarms |
 | 7: local Kubernetes | Verified: two replicas, HTTP, logs, scaling, rolling update, Pod recovery and cleanup |
-| 8: runbooks and interview preparation | Documentation prepared; final verification pending |
+| 8: runbooks and interview preparation | Complete; verified evidence, operations and cleanup documented |
 
 See [the evidence checklist](docs/EVIDENCE_CHECKLIST.md) for exactly what has been
 observed. The project is a single-instance learning demo: no HA, zero-downtime,
 public TLS, EKS or production-hardening claim is made.
+
+**Final lifecycle:** All project AWS resources were removed with approval after
+verification on November 24, 2026; the local kind cluster was removed too. The
+application is no longer hosted on EC2. Source, images and genuine workflow
+evidence remain available. `PAUSE_AUTO_DEPLOY=true` keeps ordinary pushes testing
+and publishing without attempting deployment to the deleted host. To redeploy,
+review costs, provision from the saved configuration, refresh repository variables,
+verify SSM, and reset that variable to false. See [cleanup verification](CLEANUP.md).
 
 ## Prerequisites
 
@@ -187,13 +195,17 @@ resource bounds, probes and a ClusterIP Service. See [the local exercise](docs/P
 - [CloudWatch verification](docs/PHASE6.md)
 - [Evidence and honest resume claims](docs/EVIDENCE_CHECKLIST.md)
 - [Interview questions](docs/INTERVIEW_QA.md)
+- [Final reproducibility and verification](docs/PHASE8.md)
 
 Compute plus public IPv4 is approximately **$0.0182/hour** for this Sydney t3.micro
 before credits, plus EBS, logs, alarms and any chargeable traffic. An 8 GiB gp3 disk
 is about $0.77/month and two standard alarms about $0.20/month before allowances.
 Credits cover eligible charges only; taxes/non-covered usage can differ. The $5
 budget is an alert, not a hard cap. No NAT, ALB, RDS, EKS or purchased domain is used.
-The cloud host is running while the remaining live demonstrations are performed.
+The cloud host and its project storage/monitoring were deleted after the verified
+demonstrations. A pre-existing unrelated stopped instance and 8 GiB disk remain
+outside this project; their storage may still incur charges. No account-wide
+zero-bill or global resource-absence claim is made.
 
 Stop idle compute after cloud checks. Stopping releases an automatic public IPv4
 but retains storage and alarms. To fully clean up, first pause automatic deployment,

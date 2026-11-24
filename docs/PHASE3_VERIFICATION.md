@@ -95,3 +95,11 @@ version responses. A controlled CI failure also blocked publishing and deploymen
 while the application remained healthy. See [Phase 4 evidence](PHASE4.md).
 Automatic rollback, CloudWatch application log delivery and local Kubernetes remain
 separate later-phase work. The host is running as of this later checkpoint.
+
+## Final project lifecycle
+
+The later phases completed their actual rollback, CloudWatch and local kind
+demonstrations on November 24, 2026. The user then approved the reviewed teardown;
+all 20 Terraform-managed resources were destroyed and AWS absence checks passed.
+The running-host statements above are historical checkpoints. See
+[final cleanup verification](../CLEANUP.md) and the [evidence checklist](EVIDENCE_CHECKLIST.md).

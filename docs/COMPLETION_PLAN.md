@@ -37,14 +37,14 @@ Files: `scripts/deploy.sh`, `scripts/deploy_ssm.py`, workflow, deployment tests 
 fixtures. Preserve `IMAGE_REF`, `APP_VERSION`, existing GitHub repository variables
 and SSM permissions. Add an explicit manual unhealthy mode, defaulting to healthy.
 
-- [ ] Write Linux Bash integration tests against a stateful fake Docker boundary;
+- [x] Write Linux Bash integration tests against a stateful fake Docker boundary;
   exercise the real script, jq, state files, exits and recovery behavior.
-- [ ] Observe missing rollback tests fail against Phase 4.
-- [ ] Implement current/previous image+version+logging records, healthy adoption,
+- [x] Observe missing rollback tests fail against Phase 4.
+- [x] Implement current/previous image+version+logging records, healthy adoption,
   atomic state replacement, pull-before-stop, failed-start/health recovery, clear
   first-deploy and failed-recovery results; add Python transport validation tests.
-- [ ] Verify full Python suite and Linux deployment suite, syntax and privacy.
-- [ ] Push tested code, verify a healthy release, publish a distinct candidate
+- [x] Verify full Python suite and Linux deployment suite, syntax and privacy.
+- [x] Push tested code, verify a healthy release, publish a distinct candidate
   while automatic deployment is paused, run the manual unhealthy candidate and
   prove old version restored with failed workflow; restore normal deployment.
 
@@ -53,34 +53,34 @@ and SSM permissions. Add an explicit manual unhealthy mode, defaulting to health
 Files: deployment logging configuration, Phase 6 evidence and runbook notes. Use
 the existing `/etc/cloudship.env`, log group, seven-day retention and EC2 IAM role.
 
-- [ ] Preserve the previous release's logging configuration during rollback.
-- [ ] Enable Docker awslogs only with validated existing host configuration.
-- [ ] Verify new application log events through CloudWatch APIs, existing EC2
+- [x] Preserve the previous release's logging configuration during rollback.
+- [x] Enable Docker awslogs only with validated existing host configuration.
+- [x] Verify new application log events through CloudWatch APIs, existing EC2
   metrics, alarm dimensions/thresholds and tags; do not generate heavy CPU load.
-- [ ] Record actual evidence and observed limitations.
+- [x] Record actual evidence and observed limitations.
 
 ## Task 3: Local Kubernetes
 
 Files: `kubernetes/deployment.yaml`, `service.yaml`, Phase 7 reproduction notes.
 
-- [ ] Install checksum-verified kind locally if missing; inspect kubectl compatibility.
-- [ ] Create only named local cluster `cloudship`; use a verified image digest,
+- [x] Install checksum-verified kind locally if missing; inspect kubectl compatibility.
+- [x] Create only named local cluster `cloudship`; use a verified image digest,
   two replicas, resource bounds, /health probes, non-root restrictions and ClusterIP.
-- [ ] Verify rollout, localhost port-forward health/version, logs, scaling, a
+- [x] Verify rollout, localhost port-forward health/version, logs, scaling, a
   distinct-version rolling update and recovery after deleting a test Pod.
-- [ ] Remove the project-created local cluster after evidence capture.
+- [x] Remove the project-created local cluster after evidence capture.
 
 ## Task 4: Documentation, review and lifecycle
 
 Files: README, architecture, runbook, evidence checklist, interview Q&A, phase
 verification records and reproducible cleanup instructions.
 
-- [ ] Update all phase statuses only from actual results; document clone/setup,
+- [x] Update all phase statuses only from actual results; document clone/setup,
   runtime/development locks, AWS identities, operations, costs and local kind.
-- [ ] Run fmt/validate, full tests, Linux tests, manifest checks, diff/privacy and
+- [x] Run fmt/validate, full tests, Linux tests, manifest checks, diff/privacy and
   documentation link checks. Obtain the required fresh final code review.
-- [ ] Commit/push with the user's configured Git identity and verify GitHub runs.
-- [ ] Stop idle project compute after cloud demonstrations, prepare and review
+- [x] Commit/push with the user's configured Git identity and verify GitHub runs.
+- [x] Stop idle project compute after cloud demonstrations, prepare and review
   a fresh project-owned teardown, and perform destructive cleanup only with approval.
 
 ## Verification commands
@@ -91,3 +91,5 @@ verification records and reproducible cleanup instructions.
 - Terraform: `fmt -check`, `validate`; never apply an unrelated refreshed AMI change.
 - Live: GitHub job logs, SSM results, HTTP version, CloudWatch events and kubectl
   output, all tied to the tested commit rather than inferred from source text.
+
+All tasks completed and verified November 24, 2026. Live run/evidence records are in docs/PHASE5.md through PHASE8.md and CLEANUP.md. User approved exact20-resource teardown after verification; applied and independently verified. No assistant attribution added. Final GitHub documentation push verification follows.

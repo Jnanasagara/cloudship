@@ -12,14 +12,14 @@ IPs, state, credentials, kubeconfig or raw logs. Do not fabricate screenshots.
 | CI tests and public GHCR publication | Verified — [Phase 4](PHASE4.md) |
 | Actual OIDC/SSM deployment and updated /version | Verified — [first deployment](https://github.com/Jnanasagara/cloudship/actions/runs/45409223571), [update](https://github.com/Jnanasagara/cloudship/actions/runs/45411153351) |
 | Failed unit test blocks publishing/deployment | Verified — [intentional failure](https://github.com/Jnanasagara/cloudship/actions/runs/45411167308); healthy service unchanged |
-| Real previous-image rollback | Local executable tests pass; live evidence pending — [Phase 5](PHASE5.md) |
-| Actual CloudWatch application events | Pending live verification — [Phase 6](PHASE6.md) |
-| EC2 metrics/alarms | Configured/verified in Phase 3; latest review pending |
+| Real previous-image rollback | Verified distinct B served HTTP 503, A's exact digest/version restored, deployment stayed failed — [Phase 5](PHASE5.md) |
+| Actual CloudWatch application events | Verified startup, health and version events — [Phase 6](PHASE6.md) |
+| EC2 metrics/alarms | Actual CPU datapoints, both correct-instance alarms OK; retention seven days |
 | Two-replica kind workload, probes, service | Verified — [Phase 7](PHASE7.md) |
 | Rolling update, scaling, Pod recovery and port-forward | Verified against distinct published versions; actual HTTP and new Pod UID observed |
 | kind cleanup | Verified project-created cluster removed, no PVC/PV data, private kubeconfig explicitly scoped |
-| Terraform teardown and absence of project cost-bearing resources | Pending final reviewed deletion approval |
-| README, architecture, runbook, interview preparation | Written; final link/privacy review pending |
+| Terraform teardown and absence of project cost-bearing resources | Approved 20-resource teardown verified through AWS APIs and zero managed state — [cleanup](../CLEANUP.md) |
+| README, architecture, runbook, interview preparation | Complete; local links/privacy checks passed — [final record](PHASE8.md) |
 
 ## Capture checklist
 
@@ -40,12 +40,16 @@ and record only sanitized summaries in version-controlled documentation.
 
 ## Resume claim boundaries
 
-1. **Terraform infrastructure:** provisioning/IAM/network/tags are verified. The
-   complete controlled plan/apply/destroy lifecycle still needs final teardown proof.
+1. **Terraform infrastructure:** provisioning/IAM/network/tags and the controlled
+   plan/apply/destroy lifecycle are verified.
 2. **GitHub Actions CI/CD:** verified by actual tests, publication, OIDC, SSM and
    version changes, including a failing-test gate.
-3. **Rollback, CloudWatch and kind:** do not describe the combined bullet as complete
-   until its remaining live/local demonstrations are recorded above.
+3. **Rollback, CloudWatch and kind:** all required live/local demonstrations were
+   verified and recorded above. The environment was then intentionally removed.
+
+The original resume bullets are supported as completed learning-project work.
+Describe kind explicitly as local and the AWS application as single-instance;
+do not imply that it remains running after cleanup.
 
 No claim of production HA, zero downtime, public HTTPS, multi-region deployment,
 EKS or Kubernetes managing EC2 is supported by this project.
