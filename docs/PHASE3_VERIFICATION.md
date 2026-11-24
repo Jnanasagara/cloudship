@@ -55,11 +55,24 @@ were listed as applicable services, and credit sharing was activated for the
 workload account. This establishes configured service coverage, not a guaranteed
 zero-cash invoice. Actual credit deductions and applicable taxes may appear later.
 
-The instance is **running** for the next deployment phase. Compute and its public
-IPv4 address together cost approximately **$0.0182/hour** before credits, plus
-storage, monitoring and any chargeable traffic. The $5 budget is an alert, not a
-cap. Follow the approved-cleanup procedure in [the Phase 3 guide](PHASE3.md) when
-finished; stopping the instance alone does not delete storage or monitoring.
+After the running-state verification above, the idle instance was **stopped** for
+cost control at **11:34:50 UTC on November 9, 2026**. Its automatic public IPv4
+address was verified released. The initial running-state evidence remains valid;
+SSM being offline and metric alarms losing data while stopped are expected.
+
+The retained 8 GiB disk costs about **$0.77/month**, and the two standard metric
+alarms about **$0.20/month**, before credits and any free allowances. Thus stopping
+CloudShip removes compute/public-IP usage but does not make all remaining usage
+zero. Its log group had zero stored bytes at the cost check. An approved full
+teardown removes the remaining Terraform-owned resources; a teardown preview was
+prepared but has not been applied.
+
+Before Phase 4 deployment, obtain approval to restart the host and repeat the SSM
+online check. Restarting normally assigns a new public IP; refresh Terraform state
+and outputs before using that address. While running, compute and IPv4 together
+cost approximately **$0.0182/hour** before credits, plus storage, monitoring and
+any chargeable traffic. The $5 budget is an alert, not a cap. Follow the approved
+cleanup procedure in [the Phase 3 guide](PHASE3.md) when finished.
 
 ## What this does not establish
 

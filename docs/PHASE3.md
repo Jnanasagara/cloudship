@@ -148,6 +148,12 @@ error can still incur charges.
 
 These checks passed for the initial deployment; repeat them after future changes:
 
+The host was subsequently stopped for cost control after successful verification.
+Its automatic public IP was released. SSM and metric data are unavailable while
+it is stopped; resume only after approval, then verify SSM is online again. A new
+public IP is normally assigned on restart, so refresh state and outputs before
+using it. Stopping retains the disk and alarms, which can still incur charges.
+
 1. EC2 is running in Sydney with the configured type, subnet and instance profile.
 2. Its attached security group has only the client `/32` on TCP 80 inbound, no SSH,
    and TCP 443 outbound. The subnet uses the intended internet route.

@@ -33,8 +33,10 @@ kind will run the same application locally in Kubernetes.
 
 ## Safety
 
-CloudShip's Terraform-managed infrastructure is deployed in Sydney. The EC2 host
-is running; the application will be deployed in Phase 4.
+CloudShip's Terraform-managed infrastructure is deployed in Sydney. After Phase 3
+verification, the idle EC2 host was stopped and its automatic public IPv4 released
+to reduce costs. Its root disk and alarms remain allocated; the application will
+be deployed in Phase 4 after an approved restart.
 Further cloud provisioning and destructive operations require explicit approval.
 Credentials, private keys and Terraform state must stay out of Git.
 The $5 monthly budget is an alert, not a spending cap. Advanced features remove
