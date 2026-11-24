@@ -5,6 +5,7 @@
 !Dockerfile
 !.dockerignore
 !requirements.txt
+!requirements-dev.txt
 !app/
 !app/**
 

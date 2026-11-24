@@ -44,6 +44,15 @@ def main() -> None:
     instance_id = os.environ.get("EC2_INSTANCE_ID", "")
     image_ref = os.environ.get("IMAGE_REF", "")
     version = os.environ.get("APP_VERSION", "")
+    simulate = os.environ.get("SIMULATE_UNHEALTHY", "false")
+
+    if simulate not in {"true", "false"}:
+        raise ValueError("SIMULATE_UNHEALTHY must be true or false.")
+    if simulate == "true" and (
+        os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+        or os.environ.get("GITHUB_REF") != "refs/heads/main"
+    ):
+        raise ValueError("Unhealthy demonstration requires a manual main-branch run.")
 
     if region != "ap-southeast-2":
         raise ValueError("AWS_REGION must be ap-southeast-2.")
@@ -72,7 +81,12 @@ def main() -> None:
         'chmod 0700 "$script_path"',
         'bash -n "$script_path"',
         'install -m 0700 "$script_path" /opt/cloudship/bin/deploy.sh',
-        f'bash "$script_path" {shlex.quote(image_ref)} {shlex.quote(version)}',
+        (
+            f'CLOUDSHIP_ALLOW_FAILURE_DEMO=true bash "$script_path" '
+            f'{shlex.quote(image_ref)} {shlex.quote(version)} unhealthy-demo'
+            if simulate == "true" else
+            f'bash "$script_path" {shlex.quote(image_ref)} {shlex.quote(version)} healthy'
+        ),
     ]
 
     payload = {
@@ -82,7 +96,7 @@ def main() -> None:
         "TimeoutSeconds": 120,
         "Parameters": {
             "commands": commands,
-            "executionTimeout": ["600"],
+            "executionTimeout": ["900"],
         },
     }
 
@@ -99,7 +113,7 @@ def main() -> None:
     print(f"SSM command submitted: {command_id}", flush=True)
 
     # Allow delivery, execution, and a short eventual-consistency margin.
-    deadline = time.monotonic() + 780
+    deadline = time.monotonic() + 1080
     pending = {"Pending", "InProgress", "Delayed", "Cancelling"}
 
     while time.monotonic() < deadline:
@@ -111,8 +125,20 @@ def main() -> None:
         )
 
         if result is not None and result["Status"] not in pending:
-            print(result.get("StandardOutputContent", ""), flush=True)
-            print(result.get("StandardErrorContent", ""), file=sys.stderr)
+            # Only publish structured release outcomes, never raw application logs.
+            output = result.get("StandardOutputContent", "") + "\n" + result.get("StandardErrorContent", "")
+            outcomes = re.compile(
+                r"(?:Deployment succeeded|Candidate deployment failed|"
+                r"Restoring previous verified release|Rollback succeeded): [a-f0-9]{40}"
+                r"|ROLLBACK FAILED: operator recovery is required\."
+                r"|First deployment failed; no previous verified release exists\."
+                r"|Candidate diagnostics retained privately on the host\."
+                r"|Diagnostic storage unavailable; continuing recovery\."
+                r"|Deployment error on line [0-9]+"
+            )
+            for line in output.splitlines():
+                if outcomes.fullmatch(line):
+                    print(line, flush=True)
 
             if result["Status"] == "Success" and result["ResponseCode"] == 0:
                 print("CloudShip deployment verified.")

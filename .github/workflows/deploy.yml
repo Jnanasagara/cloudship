@@ -10,6 +10,11 @@ on:
         type: boolean
         required: false
         default: false
+      simulate_unhealthy:
+        description: "Deploy an unhealthy candidate and verify automatic rollback"
+        type: boolean
+        required: false
+        default: false
 
 # Testing only needs permission to read the repository.
 permissions:
@@ -51,8 +56,8 @@ jobs:
 
       - name: Check dependency compatibility
         run: python -m pip check
-    
-          # Create a failing test only when explicitly requested manually.
+
+      # Create a failing test only when explicitly requested manually.
       - name: Prepare CI failure demonstration
         if: github.event_name == 'workflow_dispatch' && inputs.fail_ci_demo
         shell: bash
@@ -64,6 +69,10 @@ jobs:
 
       - name: Run application tests
         run: python -m pytest -q
+
+      # The real deployment script requires root; this is a disposable CI runner.
+      - name: Exercise Bash deployment and rollback
+        run: sudo -n env "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}" "$(command -v python)" -m pytest -q tests/test_deploy_shell.py
 
 
   build_publish:
@@ -127,9 +136,10 @@ jobs:
   deploy:
     name: Deploy to EC2
     needs: build_publish
-    if: github.ref == 'refs/heads/main'
+    # Pause automatic deployment while preparing a distinct rollback candidate.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PAUSE_AUTO_DEPLOY != 'true')
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     # Only this job can request an AWS OIDC token.
     permissions:
@@ -140,6 +150,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
       APP_VERSION: ${{ github.sha }}
+      SIMULATE_UNHEALTHY: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_unhealthy && 'true' || 'false' }}
 
       # Deploy the exact published content, rather than resolving a mutable tag.
       IMAGE_REF: ghcr.io/jnanasagara/cloudship@${{ needs.build_publish.outputs.digest }}

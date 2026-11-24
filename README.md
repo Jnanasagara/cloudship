@@ -1,205 +1,222 @@
 # CloudShip
 
-A DevOps project demonstrating Terraform infrastructure,
-GitHub Actions delivery, monitoring, rollback and local Kubernetes.
+CloudShip is a small, tested AWS delivery platform: Terraform provisions a
+restricted EC2 environment, GitHub Actions publishes Docker releases to GHCR,
+and AWS OIDC + Systems Manager deploy each exact image digest. Deployment checks
+health and version, with recovery to a previous verified release. The same API
+also runs in a separate local kind Kubernetes exercise.
 
-## Architecture
+```mermaid
+flowchart LR
+  Git[GitHub main] --> Tests[pytest and Bash recovery tests]
+  Tests --> GHCR[Public GHCR image by commit SHA]
+  GHCR --> Deploy[GitHub deploy job]
+  OIDC[GitHub OIDC] --> Role[Restricted AWS role]
+  Role --> Deploy
+  Deploy --> SSM[Systems Manager Run Command]
+  SSM --> EC2[EC2 Docker container]
+  EC2 --> CW[CloudWatch logs and instance alarms]
+  Client[Allowed client IPv4 /32] -->|HTTP 80| EC2
+  GHCR --> Kind[Local kind Deployment + ClusterIP]
+  Kind --> Local[127.0.0.1 port-forward]
+  TF[Terraform] --> AWS[VPC, routing, IAM, EC2, logs, alarms]
+```
 
-GitHub Actions → GHCR → AWS Systems Manager → EC2 running Docker.
+## Verified progress
 
-Terraform provisions the AWS infrastructure.
-CloudWatch will collect application logs and monitor instance metrics.
-kind will run the same application locally in Kubernetes.
+| Phase | Status |
+| --- | --- |
+| 0–2: prerequisites, FastAPI, Docker | Verified |
+| 3: Terraform AWS infrastructure | Applied and verified; final teardown pending |
+| 4: GitHub CI/CD, OIDC, SSM, failed-test gate | Verified — [evidence](docs/PHASE4.md) |
+| 5: automatic rollback | Implemented and locally tested; live proof pending |
+| 6: CloudWatch application logs | Implemented; live proof pending |
+| 7: local Kubernetes | Verified: two replicas, HTTP, logs, scaling, rolling update, Pod recovery and cleanup |
+| 8: runbooks and interview preparation | Documentation prepared; final verification pending |
 
-## Progress
+See [the evidence checklist](docs/EVIDENCE_CHECKLIST.md) for exactly what has been
+observed. The project is a single-instance learning demo: no HA, zero-downtime,
+public TLS, EKS or production-hardening claim is made.
 
-- [x] Phase 0: Prerequisites and repository setup
-- [x] Phase 1: FastAPI application and tests
-- [x] Phase 2: Docker containerization
-- [x] Phase 3: Terraform AWS infrastructure provisioned and verified
-- [x] Phase 4: GitHub Actions CI/CD verified
-- [ ] Phase 5: Health checks and automatic rollback
-- [ ] Phase 6: CloudWatch verification
-- [ ] Phase 7: Local Kubernetes with kind
-- [ ] Phase 8: Runbooks, evidence and interview preparation
+## Prerequisites
 
-## Setup decisions
+- Git, Python 3.11, Docker Desktop using Linux containers.
+- Terraform 1.17.x, AWS CLI v2 with `aws login` support, GitHub CLI.
+- AWS workload account/profile with permission to provision the reviewed resources.
+- kubectl; the project-local kind installer verifies the official binary checksum.
+- AWS region `ap-southeast-2` (Sydney), explicit client IPv4 /32, and cost approval.
 
-- Target repository: Jnanasagara/cloudship (public)
-- AWS region: ap-southeast-2 (Sydney)
-- Terraform and AWS CLI: installed and verified
-- kind: installation pending
-- AWS account: Paid Plan with advanced features enabled; resource creation still requires approval
+The GHCR application image is intentionally public. It contains no local AWS
+settings/state or credentials. Only the GitHub build job has package-write access;
+only the deployment job can request an OIDC token. No SSH or static AWS keys are used.
 
-## Safety
-
-CloudShip's Terraform-managed infrastructure is deployed in Sydney. The host was
-stopped after Phase 3 to reduce costs, then restarted with approval on November 24,
-2026 for Phase 4. It is running the verified application as of that checkpoint.
-Compute and public IPv4 together cost approximately $0.0182/hour before credits,
-plus storage, monitoring and any chargeable traffic. Stop idle compute when the
-cloud demonstrations are finished; retained disks and alarms can still incur usage.
-Further cloud provisioning and destructive operations require explicit approval.
-Credentials, private keys and Terraform state must stay out of Git.
-The $5 monthly budget is an alert, not a spending cap. Advanced features remove
-AWS project spend limits. Existing credits apply only to eligible charges before
-their expiration; paid usage is not automatically stopped when credits run out.
-
-## Local development
-
-Requires Python 3.11 or newer.
+## Local application and tests
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest -q
-
-$env:APP_VERSION = "local-dev"
-$env:ALLOW_FAILURE_DEMO = "false"
-$env:SIMULATE_UNHEALTHY = "false"
-
+$env:APP_VERSION = 'local-dev'
+$env:ALLOW_FAILURE_DEMO = 'false'
+$env:SIMULATE_UNHEALTHY = 'false'
 .\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-Stop the server with Ctrl+C.
+Endpoints: `/` identifies the service, `/health` reports application health, and
+`/version` returns `APP_VERSION`. Both failure flags must explicitly be true to
+simulate HTTP 503. Ordinary deployments set both false.
 
-### Endpoints
-
-- `GET /`: service name and running message.
-- `GET /health`: HTTP 200 when healthy.
-- `GET /version`: release identifier from APP_VERSION; defaults to local-dev.
-
-### Controlled unhealthy demonstration
-
-Before starting the server, explicitly set both ALLOW_FAILURE_DEMO
-and SIMULATE_UNHEALTHY to "true" to enable the demonstration.
-
-In this mode, /health returns HTTP 503 and /version remains available.
-Simulation without permission is rejected during startup.
-
-Restart the application after changing these settings.
-Restore both flags to "false" afterward.
-
-Normal deployments must explicitly disable both flags.
-Automatic deployment is verified. Automatic rollback remains pending in Phase 5.
-
-
-## Docker development
-
-Requires Docker Desktop running with Linux containers.
+Windows skips the privileged Bash tests. Run the complete suite in Linux:
 
 ```powershell
-# Build the image using the locked runtime dependencies.
+docker build -t cloudship:test-tools -f tests/Dockerfile .
+$projectRoot = $PWD.Path
+docker run --rm --network none --mount "type=bind,source=$projectRoot,target=/workspace,readonly" cloudship:test-tools
+```
+
+The Linux tests run the real Bash script and jq/state-file logic with stateful
+substitutes for external Docker/HTTP commands; they do not touch AWS or the actual
+Docker daemon. GitHub separately runs the Bash suite under sudo on its disposable
+runner. Actual container and cloud behavior is checked in the recorded live demos.
+
+```powershell
 docker build --pull -t cloudship:local-v1 .
-
-# Start a non-root container, accessible only from this computer.
 docker run -d --name cloudship-local -p 127.0.0.1:8000:8000 -e APP_VERSION=local-v1 -e ALLOW_FAILURE_DEMO=false -e SIMULATE_UNHEALTHY=false cloudship:local-v1
-
-# Verify application health and release identification.
-curl.exe -i http://127.0.0.1:8000/health
-curl.exe -i http://127.0.0.1:8000/version
-
-# Inspect application logs and the container's runtime identity.
+curl.exe http://127.0.0.1:8000/health
 docker logs cloudship-local
-docker exec cloudship-local id
-
-# Stop and remove this container; retain the image.
 docker stop cloudship-local
 docker rm cloudship-local
 ```
 
-### Configuration
+The image runs as UID/GID 10001. `UVICORN_PORT` defaults to 8000; update the port
+mapping if you change it. Docker's restart policy is not image rollback.
 
-- APP_VERSION identifies the running release.
-- UVICORN_PORT controls the container's listening port; default: 8000.
-- When changing UVICORN_PORT, update the container side of the port mapping.
-- Unhealthy mode requires both ALLOW_FAILURE_DEMO=true and SIMULATE_UNHEALTHY=true.
-- Environment settings are supplied when creating a container.
-  Recreate the container to change them.
+## AWS and Terraform setup
 
-### Dependencies
-
-Edit requirements.in to select direct runtime dependencies.
-Generate requirements.txt rather than editing its versions and hashes manually.
+Read [the Phase 3 guide](docs/PHASE3.md), establish a budget alert and approve costs
+before provisioning. Never deploy this workload in the organization management
+account. Never select a management-account root session for the `cloudship` profile.
 
 ```powershell
-# Install the dependency compiler into the local development environment.
+aws login --profile cloudship --region ap-southeast-2
+aws sts get-caller-identity --profile cloudship --region ap-southeast-2
+Copy-Item terraform/terraform.tfvars.example terraform/terraform.tfvars
+```
+
+Edit the ignored `terraform.tfvars` with **your** workload account ID and current
+client IPv4 /32. Never commit that file. For a fork, update the GHCR namespace in
+the workflow and deployment validators (`scripts/deploy.sh`, `scripts/deploy_ssm.py`),
+both deployment test modules (`tests/test_deploy_shell.py`, `tests/test_deploy_ssm.py`),
+and the Kubernetes image/version pair if using your own local release. Use your repository's actual immutable
+OIDC subject in `terraform/locals.tf`; obtain it with:
+
+```powershell
+gh api repos/OWNER/REPOSITORY/actions/oidc/customization/sub
+```
+
+The trust must match the exact repository identity and `ref:refs/heads/main`.
+Adding a GitHub job environment changes that subject and requires an intentional
+trust-policy update. Do not use a wildcard subject as an authentication workaround.
+
+```powershell
+terraform -chdir=terraform init -lockfile=readonly
+terraform -chdir=terraform fmt -check
+terraform -chdir=terraform validate
+terraform -chdir=terraform plan -out=deploy.tfplan
+# Inspect the complete plan and approve billable creation before this step.
+terraform -chdir=terraform apply deploy.tfplan
+terraform -chdir=terraform output
+```
+
+The configuration creates 20 resources: networking, restricted ingress, one EC2,
+instance/deployment IAM, GitHub OIDC, a log group and two metric alarms. Bootstrap
+installs Docker/jq and prepares root-owned directories. It does not deploy the app.
+Wait for both EC2 status checks and SSM Online. State is local and ignored: back it
+up privately and reuse it for the same infrastructure. A fresh checkout without
+state does not automatically adopt existing resources. A newer public AMI parameter
+can propose EC2 replacement; review it rather than applying an unrelated change.
+
+## GitHub delivery
+
+Configure Actions repository variables from your outputs:
+
+```powershell
+gh variable set AWS_REGION --repo OWNER/REPOSITORY --body 'ap-southeast-2'
+$role = terraform -chdir=terraform output -raw github_deploy_role_arn
+$instance = terraform -chdir=terraform output -raw instance_id
+gh variable set AWS_ROLE_ARN --repo OWNER/REPOSITORY --body "$role"
+gh variable set EC2_INSTANCE_ID --repo OWNER/REPOSITORY --body "$instance"
+```
+
+Push to main: tests → commit-tagged public GHCR image → digest-pinned SSM deployment
+→ matching health/version. Publishing uses GitHub's generated `GITHUB_TOKEN`; EC2
+pulls the public image anonymously. Newly created GHCR packages start private;
+change package visibility deliberately after reviewing the build contents.
+
+`PAUSE_AUTO_DEPLOY=true` pauses **push** deployment while tests/publication continue.
+Manual main-branch runs remain available. Clear/reset the variable after a demo.
+`fail_ci_demo=true` creates a temporary failing unit test only on the manual runner.
+`simulate_unhealthy=true` deliberately starts an unhealthy candidate only through
+an explicit manual main-branch run. Recovery must restore the previous image and
+still report the candidate deployment as failed. See [rollback operations](docs/PHASE5.md).
+
+## Local Kubernetes
+
+This is local Kubernetes in Docker, **not EKS and not EC2 orchestration**.
+The pinned node image matches the installed kubectl 1.34 minor version.
+
+```powershell
+.\scripts\install-kind.ps1
+New-Item -ItemType Directory -Path .artifacts -Force | Out-Null
+$kc = Join-Path $PWD.Path '.artifacts\kind.kubeconfig'
+.\.tools\kind.exe create cluster --name cloudship --kubeconfig $kc --image 'kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d' --wait 120s
+kubectl --kubeconfig $kc --context kind-cloudship apply -f kubernetes/
+kubectl --kubeconfig $kc --context kind-cloudship rollout status deployment/cloudship --timeout=180s
+kubectl --kubeconfig $kc --context kind-cloudship get pods,deployments,services
+kubectl --kubeconfig $kc --context kind-cloudship port-forward --address 127.0.0.1 service/cloudship 18080:80
+```
+
+In another terminal, call `http://127.0.0.1:18080/health` and `/version`. The manifest
+pins a published digest and its corresponding version, with two non-root replicas,
+resource bounds, probes and a ClusterIP Service. See [the local exercise](docs/PHASE7.md).
+
+## Operations, security and costs
+
+- [Architecture and boundaries](docs/ARCHITECTURE.md)
+- [Troubleshooting and recovery runbook](docs/RUNBOOK.md)
+- [CloudWatch verification](docs/PHASE6.md)
+- [Evidence and honest resume claims](docs/EVIDENCE_CHECKLIST.md)
+- [Interview questions](docs/INTERVIEW_QA.md)
+
+Compute plus public IPv4 is approximately **$0.0182/hour** for this Sydney t3.micro
+before credits, plus EBS, logs, alarms and any chargeable traffic. An 8 GiB gp3 disk
+is about $0.77/month and two standard alarms about $0.20/month before allowances.
+Credits cover eligible charges only; taxes/non-covered usage can differ. The $5
+budget is an alert, not a hard cap. No NAT, ALB, RDS, EKS or purchased domain is used.
+The cloud host is running while the remaining live demonstrations are performed.
+
+Stop idle compute after cloud checks. Stopping releases an automatic public IPv4
+but retains storage and alarms. To fully clean up, first pause automatic deployment,
+review a fresh `terraform plan -destroy -out=cleanup.tfplan`, obtain deletion
+approval, and apply that exact plan. Verify the project instance, attached disk,
+networking, IAM/OIDC, alarms and log group are gone. Do not delete unrelated
+resources. Delete only the project-created local cluster after the kind demo:
+
+```powershell
+.\.tools\kind.exe delete cluster --name cloudship --kubeconfig $kc
+```
+
+Credentials, state, personal inputs, raw logs, local tools and kubeconfig stay in
+ignored paths. Genuine workflow links/API/CLI observations are recorded in the
+evidence documents; no fabricated screenshots or production claims are used.
+
+## Dependency maintenance
+
+```powershell
 .\.venv\Scripts\python.exe -m pip install pip-tools==7.6.2
-
-# Regenerate the runtime lock, including package hashes.
 .\.venv\Scripts\python.exe -m piptools compile --generate-hashes --no-emit-index-url --no-emit-trusted-host requirements.in
-
-# Regenerate the development lock with the same runtime versions and test tools.
 .\.venv\Scripts\python.exe -m piptools compile --generate-hashes --no-emit-index-url --no-emit-trusted-host --output-file=requirements-dev.txt requirements-dev.in
 ```
 
-Review dependency changes and rerun tests and the Docker build afterward.
-
-### Verified container behavior
-
-- Healthy root, health and version endpoints.
-- Runtime user and group IDs: 10001.
-- Explicit unhealthy mode returns HTTP 503 while version remains available.
-- A second container does not affect the healthy container.
-- Configurable container port verified using UVICORN_PORT=8080.
-- Demonstration containers stopped and removed; local image retained.
-
-Docker reports process state; HTTP checks establish application health.
-Automatic rollback is not implemented yet.
-
-## Terraform infrastructure checkpoint
-
-### Implemented and verified
-
-- Dedicated VPC, public subnet, internet gateway and routing.
-- HTTP ingress restricted to an explicitly configured client IPv4 /32.
-- No inbound SSH rule; management is designed to use Systems Manager.
-- EC2 configuration with encrypted storage and required IMDSv2 tokens.
-- Instance IAM permissions for Systems Manager and application log publishing.
-- CloudWatch log group with seven-day retention and two EC2 metric alarms.
-- GitHub OIDC provider and deployment role restricted to the exact repository and main branch.
-- SSM deployment permissions restricted to the CloudShip instance and shell-command document.
-- Account allowlist rejects credentials for an unintended AWS account.
-- Instance ID, public IP, log group and deployment role ARN outputs.
-- Shareable variables example; real variables and Terraform state are ignored.
-- Initial apply created 20 resources; a fresh post-apply plan reports no changes.
-- Bootstrap template uses Linux line endings; the exact rendered script passed Bash syntax checking without execution.
-
-### Cloud verification and remaining boundaries
-
-EC2 is running and both system and instance status checks pass. Systems Manager
-reports the host online. A successful SSM command verified completed cloud-init,
-active Docker and SSM services, deployment directories and bootstrap settings.
-Live API checks confirmed encrypted storage, IMDSv2, restricted network rules,
-IAM policy scopes, supported-resource tags, log retention and both alarms.
-Both EC2 metric alarms reported OK during verification.
-
-The earlier organization-policy denial on listing OIDC providers was resolved
-after advanced-feature activation. The provider listing returned zero existing
-GitHub providers, and Terraform then created the provider and deployment role.
-GitHub OIDC token exchange and actual SSM deployment permissions were verified
-in Phase 4 on November 24, 2026.
-
-Phase 3 acceptance checks passed on November 9, 2026. Phase 4 application deployment
-was verified on November 24, 2026. CloudWatch application log delivery, automatic
-rollback and local Kubernetes remain pending.
-See [the Phase 3 deployment guide](docs/PHASE3.md) for the resource inventory,
-cost assumptions, approval boundary, verification, cleanup and interview checkpoint.
-The [Phase 3 verification record](docs/PHASE3_VERIFICATION.md) summarizes the actual
-AWS checks without publishing local inputs, state, resource IDs or raw logs.
-
-## Verified CI/CD checkpoint
-
-Pushes to main run application tests, publish a commit-tagged image to public GHCR,
-and deploy the exact image digest to EC2 through Systems Manager. Only the deployment
-job can request an AWS OIDC token. No SSH keys or long-lived AWS secrets are used.
-The host checks both application health and the expected commit version before the
-workflow reports deployment success.
-
-The controlled manual `fail_ci_demo=true` run produced one intentional test failure
-and eight passing tests. Image publishing and deployment were skipped; the existing
-application stayed healthy at the previously deployed version. The demonstration
-is disabled by default and does not activate on ordinary pushes.
-
-See [the Phase 4 guide and evidence](docs/PHASE4.md) for configuration, reproduction
-commands, verified workflow runs, operating limits and the interview checkpoint.
+Review lock changes and rerun the full tests and image build. Runtime and test
+locks must remain aligned; a mixed hashed/unhashed install fails on a fresh runner.
