@@ -43,3 +43,62 @@ jobs:
 
       - name: Run application tests
         run: python -m pytest -q
+
+
+  build_publish:
+    name: Build and publish image
+
+    # Failed tests prevent image publication.
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: write
+
+    # Retain the image reference and digest for our later deployment job.
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Define release image
+        id: image
+        shell: bash
+        run: |
+          echo "ref=ghcr.io/jnanasagara/cloudship:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # GitHub supplies this token automatically; no personal token is needed.
+      - name: Sign in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          pull: true
+          push: true
+          tags: ${{ steps.image.outputs.ref }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Jnanasagara/cloudship
+            org.opencontainers.image.revision=${{ github.sha }}
